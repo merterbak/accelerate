@@ -2805,11 +2805,11 @@ class Accelerator:
         """
         return pad_across_processes(tensor, dim=dim, pad_index=pad_index, pad_first=pad_first)
 
-    def unwrap_model(self, model, keep_fp32_wrapper: bool = True, keep_torch_compile: bool = True):
+    def unwrap_model(self, model, keep_fp32_wrapper: bool = True, keep_torch_compile: bool = True, is_saving: bool = False):
         """
         Unwraps the `model` from the additional layer possible added by [`~Accelerator.prepare`]. Useful before saving
         the model.
-
+    
         Args:
             model (`torch.nn.Module`):
                 The model to unwrap.
@@ -2817,28 +2817,15 @@ class Accelerator:
                 Whether to not remove the mixed precision hook if it was added.
             keep_torch_compile (`bool`, *optional*, defaults to `True`):
                 Whether to not unwrap compiled model if compiled.
+            is_saving (`bool`, *optional*, defaults to `False`):
+                Whether the model is being unwrapped for saving. If `True`, the `torch.compile` wrapper is removed to ensure
+                compatibility with saving as a `PreTrainedModel`.
+    
         Returns:
             `torch.nn.Module`: The unwrapped model.
-
-        Example:
-
-        ```python
-        >>> # Assuming two GPU processes
-        >>> from torch.nn.parallel import DistributedDataParallel
-        >>> from accelerate import Accelerator
-
-        >>> accelerator = Accelerator()
-        >>> model = accelerator.prepare(MyModel())
-        >>> print(model.__class__.__name__)
-        DistributedDataParallel
-
-        >>> model = accelerator.unwrap_model(model)
-        >>> print(model.__class__.__name__)
-        MyModel
-        ```
         """
-        return extract_model_from_parallel(model, keep_fp32_wrapper, keep_torch_compile)
-
+        effective_keep_torch_compile = keep_torch_compile and not is_saving
+        return extract_model_from_parallel(model, keep_fp32_wrapper, effective_keep_torch_compile)
     def wait_for_everyone(self):
         """
         Will stop the execution of the current process until every other process has reached that point (so this does
